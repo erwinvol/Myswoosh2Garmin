@@ -56,25 +56,34 @@ class Config:
         garmin_password = os.getenv("GARMIN_PASSWORD", "").strip() or None
 
         # Resolve Garmin token directory
-        token_dir_env = os.getenv("GARMIN_TOKEN_DIR")
+        token_dir_env = os.getenv("GARMIN_TOKEN_DIR", "").strip()
         if token_dir_env:
             garmin_token_dir = Path(os.path.expanduser(token_dir_env))
-        elif Path("/root/.garminconnect").exists():
+        elif Path("/root/.garminconnect").exists() and os.access("/root/.garminconnect", os.W_OK):
             garmin_token_dir = Path("/root/.garminconnect")
         else:
             garmin_token_dir = Path(os.path.expanduser("~/.garminconnect"))
 
+        try:
+            garmin_token_dir.mkdir(parents=True, exist_ok=True)
+        except (PermissionError, OSError):
+            garmin_token_dir = Path(os.path.expanduser("~/.garminconnect"))
+            garmin_token_dir.mkdir(parents=True, exist_ok=True)
+
         # Resolve Data directory
-        data_dir_env = os.getenv("DATA_DIR")
+        data_dir_env = os.getenv("DATA_DIR", "").strip()
         if data_dir_env:
             data_dir = Path(os.path.expanduser(data_dir_env))
-        elif Path("/data").exists():
+        elif Path("/data").exists() and os.access("/data", os.W_OK):
             data_dir = Path("/data")
         else:
             data_dir = Path("./data")
 
-        data_dir.mkdir(parents=True, exist_ok=True)
-        garmin_token_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            data_dir.mkdir(parents=True, exist_ok=True)
+        except (PermissionError, OSError):
+            data_dir = Path("./data")
+            data_dir.mkdir(parents=True, exist_ok=True)
 
         sync_interval = int(os.getenv("SYNC_INTERVAL_MINUTES", "15"))
         sync_batch = int(os.getenv("SYNC_BATCH_SIZE", "10"))
