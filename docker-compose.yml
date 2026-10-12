@@ -1,0 +1,11 @@
+services:
+  myswoosh2garmin:
+    build: .
+    image: myswoosh2garmin:latest
+    container_name: myswoosh2garmin
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/data
+      - ~/.garminconnect:/root/.garminconnect:rw
