@@ -40,7 +40,7 @@ def parse_args() -> argparse.ArgumentParser:
         "--interval",
         type=int,
         metavar="MINUTES",
-        help="Interval between sync cycles in minutes (default from config or 15m).",
+        help="Interval between sync cycles in minutes (default from config or 60m).",
     )
     parser.add_argument(
         "--sync-latest",
