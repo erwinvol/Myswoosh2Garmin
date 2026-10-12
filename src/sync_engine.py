@@ -34,7 +34,7 @@ class SyncEngine:
             token_dir=config.garmin_token_dir,
         )
         self.enhancer = enhancer or FitEnhancer(
-            spoof_device=config.spoof_device,
+            spoof_device=config.spoof_garmin_device,
             device_product_id=config.device_product_id,
             software_version=config.device_software_version,
             athlete_ftp=config.athlete_ftp,
