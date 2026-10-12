@@ -42,18 +42,29 @@ class SyncEngine:
         db_path = config.data_dir / "sync_state.db"
         self.store = store or SyncStore(db_path=db_path)
 
-    def run_sync(self, limit: Optional[int] = None, dry_run: bool = False) -> Dict[str, int]:
+    def run_sync(
+        self,
+        limit: Optional[int] = None,
+        dry_run: bool = False,
+        sync_latest: bool = False,
+    ) -> Dict[str, int]:
         """Execute a synchronization run.
 
         Args:
             limit: Maximum activities to inspect (defaults to config.sync_batch_size).
             dry_run: When True, simulates the process without uploading or persisting state.
+            sync_latest: When True, strictly targets only the single latest activity.
 
         Returns:
             Dictionary with counts of processed, uploaded, skipped, and failed activities.
         """
-        batch_limit = limit or self.config.sync_batch_size
-        logger.info("Starting sync run (batch limit: %d, dry_run: %s)...", batch_limit, dry_run)
+        batch_limit = 1 if sync_latest else (limit or self.config.sync_batch_size)
+        logger.info(
+            "Starting sync run (batch limit: %d, sync_latest: %s, dry_run: %s)...",
+            batch_limit,
+            sync_latest,
+            dry_run,
+        )
 
         stats = {
             "total_found": 0,
@@ -65,19 +76,33 @@ class SyncEngine:
 
         # Step 1: Fetch activities from MyWhoosh
         try:
-            activities = self.mywhoosh.get_activities(limit=batch_limit)
+            query_limit = 5 if sync_latest else batch_limit
+            activities = self.mywhoosh.get_activities(limit=query_limit)
         except Exception as exc:
             logger.exception("Failed to retrieve activities from MyWhoosh: %s", exc)
             stats["failed"] += 1
             return stats
+
+        from datetime import datetime, timezone
+        from src.garmin_client import parse_activity_datetime
+        activities.sort(
+            key=lambda a: parse_activity_datetime(a.get("date")) or datetime.min.replace(tzinfo=timezone.utc),
+            reverse=True,
+        )
+
+        if sync_latest:
+            activities = activities[:1]
+        elif batch_limit and len(activities) > batch_limit:
+            activities = activities[:batch_limit]
 
         stats["total_found"] = len(activities)
         if not activities:
             logger.info("No activities returned from MyWhoosh.")
             return stats
 
-        # Reverse so older activities are synced before newer ones
-        activities_to_process = list(reversed(activities))
+        # If sync_latest, evaluate only the newest activity.
+        # Otherwise, reverse so older activities are uploaded before newer ones.
+        activities_to_process = activities if sync_latest else list(reversed(activities))
 
         for activity in activities_to_process:
             act_id = activity["id"]
@@ -92,11 +117,15 @@ class SyncEngine:
             if self.store.is_synced(act_id):
                 logger.info("Activity %s already marked in sync database. Skipping.", act_id)
                 stats["already_synced"] += 1
+                if sync_latest:
+                    break
                 continue
 
             if dry_run:
                 logger.info("[DRY-RUN] Would process activity %s", act_id)
                 stats["uploaded"] += 1
+                if sync_latest:
+                    break
                 continue
 
             # Process single activity
@@ -165,6 +194,9 @@ class SyncEngine:
                     self.enhancer.cleanup_file(raw_path)
                 if enhanced_path and enhanced_path != raw_path:
                     self.enhancer.cleanup_file(enhanced_path)
+
+            if sync_latest:
+                break
 
         logger.info("==================================================")
         logger.info(
