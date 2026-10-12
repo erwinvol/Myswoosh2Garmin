@@ -1,0 +1,107 @@
+"""Configuration loader for Myswoosh2Garmin service."""
+
+import os
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+
+@dataclass
+class Config:
+    """Application configuration."""
+
+    # MyWhoosh credentials
+    mywhoosh_email: str
+    mywhoosh_password: str
+
+    # Garmin Connect credentials & tokens
+    garmin_username: Optional[str]
+    garmin_password: Optional[str]
+    garmin_token_dir: Path
+
+    # Service sync parameters
+    data_dir: Path
+    sync_interval_minutes: int = 15
+    sync_batch_size: int = 10
+    check_duplicates: bool = True
+    duplicate_threshold_hours: int = 2
+
+    # FIT enhancement settings
+    spoof_garmin_device: bool = True
+    device_product_id: int = 3927  # Garmin Edge 1040
+    device_software_version: float = 27.10
+    athlete_ftp: float = 0.0
+
+    # Operational settings
+    log_level: str = "INFO"
+
+    @classmethod
+    def from_env(cls) -> "Config":
+        """Load configuration from environment variables."""
+        mywhoosh_email = os.getenv("MYWHOOSH_EMAIL", "").strip()
+        mywhoosh_password = os.getenv("MYWHOOSH_PASSWORD", "").strip()
+
+        if not mywhoosh_email or not mywhoosh_password:
+            raise ValueError(
+                "MYWHOOSH_EMAIL and MYWHOOSH_PASSWORD environment variables are required."
+            )
+
+        garmin_username = os.getenv("GARMIN_USERNAME", "").strip() or None
+        garmin_password = os.getenv("GARMIN_PASSWORD", "").strip() or None
+
+        # Resolve Garmin token directory
+        token_dir_env = os.getenv("GARMIN_TOKEN_DIR")
+        if token_dir_env:
+            garmin_token_dir = Path(os.path.expanduser(token_dir_env))
+        elif Path("/root/.garminconnect").exists():
+            garmin_token_dir = Path("/root/.garminconnect")
+        else:
+            garmin_token_dir = Path(os.path.expanduser("~/.garminconnect"))
+
+        # Resolve Data directory
+        data_dir_env = os.getenv("DATA_DIR")
+        if data_dir_env:
+            data_dir = Path(os.path.expanduser(data_dir_env))
+        elif Path("/data").exists():
+            data_dir = Path("/data")
+        else:
+            data_dir = Path("./data")
+
+        data_dir.mkdir(parents=True, exist_ok=True)
+        garmin_token_dir.mkdir(parents=True, exist_ok=True)
+
+        sync_interval = int(os.getenv("SYNC_INTERVAL_MINUTES", "15"))
+        sync_batch = int(os.getenv("SYNC_BATCH_SIZE", "10"))
+        check_dups = os.getenv("CHECK_DUPLICATES", "true").lower() in ("true", "1", "yes")
+        dup_threshold = int(os.getenv("DUPLICATE_THRESHOLD_HOURS", "2"))
+
+        spoof_device = os.getenv("SPOOF_GARMIN_DEVICE", "true").lower() in ("true", "1", "yes")
+        device_product = int(os.getenv("DEVICE_PRODUCT_ID", "3927"))
+        device_sw = float(os.getenv("DEVICE_SOFTWARE_VERSION", "27.10"))
+        ftp = float(os.getenv("ATHLETE_FTP", "0.0"))
+
+        log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+
+        return cls(
+            mywhoosh_email=mywhoosh_email,
+            mywhoosh_password=mywhoosh_password,
+            garmin_username=garmin_username,
+            garmin_password=garmin_password,
+            garmin_token_dir=garmin_token_dir,
+            data_dir=data_dir,
+            sync_interval_minutes=sync_interval,
+            sync_batch_size=sync_batch,
+            check_duplicates=check_dups,
+            duplicate_threshold_hours=dup_threshold,
+            spoof_garmin_device=spoof_device,
+            device_product_id=device_product,
+            device_software_version=device_sw,
+            athlete_ftp=ftp,
+            log_level=log_level,
+        )
