@@ -1,5 +1,4 @@
-"""Client for interacting with Garmin Connect."""
-
+import locale
 import logging
 import os
 from datetime import datetime, timezone
@@ -8,11 +7,19 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
+try:
+    locale.setlocale(locale.LC_TIME, "")
+except Exception:
+    pass
 
-def parse_activity_datetime(date_val: Optional[str]) -> Optional[datetime]:
+
+def parse_activity_datetime(date_val: Any) -> Optional[datetime]:
     """Parse various timestamp representations into a timezone-aware datetime."""
     if not date_val:
         return None
+
+    if isinstance(date_val, datetime):
+        return date_val if date_val.tzinfo else date_val.replace(tzinfo=timezone.utc)
 
     # Handle numeric timestamp
     try:
@@ -49,6 +56,28 @@ def parse_activity_datetime(date_val: Optional[str]) -> Optional[datetime]:
         pass
 
     return None
+
+
+def format_local_datetime(date_val: Any, include_time: bool = True) -> str:
+    """Format an activity datetime, timestamp string, or epoch into local system format.
+
+    Converts UTC timestamps to the local system timezone and formats according to system locale (%x %X).
+    """
+    if not date_val:
+        return ""
+
+    dt = parse_activity_datetime(date_val)
+    if not dt:
+        return str(date_val)
+
+    # Convert to local system timezone
+    local_dt = dt.astimezone()
+
+    try:
+        fmt = "%x %X" if include_time else "%x"
+        return local_dt.strftime(fmt)
+    except Exception:
+        return local_dt.strftime("%Y-%m-%d %H:%M:%S")
 
 
 class GarminClient:
@@ -165,7 +194,7 @@ class GarminClient:
                     logger.warning(
                         "Found potential duplicate activity on Garmin: '%s' at %s (diff: %.1f hrs)",
                         existing_title,
-                        act_dt.isoformat(),
+                        format_local_datetime(act_dt),
                         hours_diff,
                     )
                     return True
