@@ -141,7 +141,11 @@ def main() -> int:
         return 0
 
     # One-off run
-    stats = engine.run_sync(limit=batch_size, dry_run=args.dry_run)
+    stats = engine.run_sync(
+        limit=batch_size,
+        dry_run=args.dry_run,
+        sync_latest=args.sync_latest,
+    )
     return 1 if stats["failed"] > 0 else 0
 
 
