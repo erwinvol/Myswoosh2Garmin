@@ -4,8 +4,32 @@ services:
     image: myswoosh2garmin:latest
     container_name: myswoosh2garmin
     restart: unless-stopped
-    env_file:
-      - .env
+    environment:
+      # MyWhoosh Credentials
+      - MYWHOOSH_EMAIL=your_mywhoosh_email@example.com
+      - MYWHOOSH_PASSWORD=your_mywhoosh_password
+
+      # Garmin Connect Credentials (optional if tokens exist in data/garmin_tokens)
+      - GARMIN_USERNAME=your_garmin_email@example.com
+      - GARMIN_PASSWORD=your_garmin_password
+
+      # Storage directories inside container
+      - DATA_DIR=/data
+      - GARMIN_TOKEN_DIR=/data/garmin_tokens
+
+      # Sync Configuration (Default: 60 minutes)
+      - SYNC_INTERVAL_MINUTES=60
+      - SYNC_BATCH_SIZE=10
+      - CHECK_DUPLICATES=true
+      - DUPLICATE_THRESHOLD_HOURS=2
+
+      # FIT Device Spoofing (Garmin Edge 1040)
+      - SPOOF_GARMIN_DEVICE=true
+      - DEVICE_PRODUCT_ID=3927
+      - DEVICE_SOFTWARE_VERSION=27.10
+      - ATHLETE_FTP=0
+
+      # Logging level
+      - LOG_LEVEL=INFO
     volumes:
       - ./data:/data
-      - ~/.garminconnect:/root/.garminconnect:rw
