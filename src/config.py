@@ -27,7 +27,7 @@ class Config:
 
     # Service sync parameters
     data_dir: Path
-    sync_interval_minutes: int = 15
+    sync_interval_minutes: int = 60
     sync_batch_size: int = 10
     check_duplicates: bool = True
     duplicate_threshold_hours: int = 2
@@ -55,22 +55,7 @@ class Config:
         garmin_username = os.getenv("GARMIN_USERNAME", "").strip() or None
         garmin_password = os.getenv("GARMIN_PASSWORD", "").strip() or None
 
-        # Resolve Garmin token directory
-        token_dir_env = os.getenv("GARMIN_TOKEN_DIR", "").strip()
-        if token_dir_env:
-            garmin_token_dir = Path(os.path.expanduser(token_dir_env))
-        elif Path("/root/.garminconnect").exists() and os.access("/root/.garminconnect", os.W_OK):
-            garmin_token_dir = Path("/root/.garminconnect")
-        else:
-            garmin_token_dir = Path(os.path.expanduser("~/.garminconnect"))
-
-        try:
-            garmin_token_dir.mkdir(parents=True, exist_ok=True)
-        except (PermissionError, OSError):
-            garmin_token_dir = Path(os.path.expanduser("~/.garminconnect"))
-            garmin_token_dir.mkdir(parents=True, exist_ok=True)
-
-        # Resolve Data directory
+        # Resolve Data directory first
         data_dir_env = os.getenv("DATA_DIR", "").strip()
         if data_dir_env:
             data_dir = Path(os.path.expanduser(data_dir_env))
@@ -85,7 +70,31 @@ class Config:
             data_dir = Path("./data")
             data_dir.mkdir(parents=True, exist_ok=True)
 
-        sync_interval = int(os.getenv("SYNC_INTERVAL_MINUTES", "15"))
+        # Resolve Garmin token directory (defaults to inside data_dir)
+        token_dir_env = os.getenv("GARMIN_TOKEN_DIR", "").strip()
+        if token_dir_env:
+            garmin_token_dir = Path(os.path.expanduser(token_dir_env))
+        else:
+            garmin_token_dir = data_dir / "garmin_tokens"
+
+        try:
+            garmin_token_dir.mkdir(parents=True, exist_ok=True)
+        except (PermissionError, OSError):
+            garmin_token_dir = data_dir / "garmin_tokens"
+            garmin_token_dir.mkdir(parents=True, exist_ok=True)
+
+        # Automatically copy existing host tokens from ~/.garminconnect if token dir is empty
+        try:
+            user_tokens_dir = Path(os.path.expanduser("~/.garminconnect"))
+            if user_tokens_dir.exists() and not any(garmin_token_dir.iterdir()):
+                import shutil
+                for item in user_tokens_dir.iterdir():
+                    if item.is_file():
+                        shutil.copy2(item, garmin_token_dir / item.name)
+        except Exception:
+            pass
+
+        sync_interval = int(os.getenv("SYNC_INTERVAL_MINUTES", "60"))
         sync_batch = int(os.getenv("SYNC_BATCH_SIZE", "10"))
         check_dups = os.getenv("CHECK_DUPLICATES", "true").lower() in ("true", "1", "yes")
         dup_threshold = int(os.getenv("DUPLICATE_THRESHOLD_HOURS", "2"))
