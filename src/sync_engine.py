@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from src.config import Config
 from src.fit_enhancer import FitEnhancer
-from src.garmin_client import GarminClient
+from src.garmin_client import GarminClient, format_local_datetime
 from src.mywhoosh_client import MyWhooshClient
 from src.sync_store import SyncStore
 
@@ -86,7 +86,7 @@ class SyncEngine:
             file_id = activity["activity_file_id"]
 
             logger.info("--------------------------------------------------")
-            logger.info("Evaluating MyWhoosh activity: %s (ID: %s, Date: %s)", name, act_id, act_date)
+            logger.info("Evaluating MyWhoosh activity: %s (ID: %s, Date: %s)", name, act_id, format_local_datetime(act_date))
 
             # Check 1: Already handled in local database
             if self.store.is_synced(act_id):
