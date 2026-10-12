@@ -8,14 +8,14 @@ Packaged as a lightweight, containerized Docker service suitable for running on 
 
 ## 🌟 Key Features
 
-* **🔄 Automated Synchronization**: Runs as a set-and-forget background daemon polling MyWhoosh for new rides at configurable intervals (e.g., every 15 minutes).
+* **🔄 Automated Synchronization**: Runs as a set-and-forget background daemon polling MyWhoosh for new rides at configurable intervals (e.g., every 60 minutes).
 * **🎯 Garmin Physio TrueUp & Training Metrics**: By default, standard third-party virtual rides uploaded to Garmin Connect do not calculate Training Load or Training Effect. **Myswoosh2Garmin** patches the FIT file metadata (`FileIdMessage` and `DeviceInfoMessage`) to identify as a **Garmin Edge 1040** (or Edge 840), unlocking full physiological training metrics in Garmin Connect.
 * **🛡️ Multi-Tier Duplicate Prevention**:
   1. **Persistent SQLite Store**: Remembers synced activity IDs across reboots and container restarts.
   2. **Garmin Connect Time Window**: Checks Garmin Connect for activities matching within a ±2 hour window (preventing duplicates if you also recorded on your watch/bike computer).
   3. **HTTP 409 Conflict Protection**: Gracefully catches Garmin's upload duplicate response.
-* **🔑 Secure Token Caching**: Reuses cached Garmin session tokens (`~/.garminconnect`), preventing repetitive 2FA prompts and avoiding account lockouts.
-* **🐳 Docker & Docker Compose Ready**: Single-command startup with minimal resource overhead.
+* **🔑 Secure Token Caching**: Stores Garmin session tokens inside the `data/garmin_tokens` directory, preventing repetitive 2FA prompts and avoiding account lockouts.
+* **🐳 Docker & Docker Compose Ready**: Single-command startup with minimal resource overhead and only a single volume mount (`./data:/data`).
 * **🛠️ Flexible CLI Controls**: Supports single-ride sync (`--sync-latest`), batch backfills (`--batch 10`), database inspection (`--status`), and simulations (`--dry-run`).
 
 ---
@@ -64,29 +64,31 @@ git clone https://github.com/erwinvol/Myswoosh2Garmin.git
 cd Myswoosh2Garmin
 ```
 
-### 2. Configure Environment Variables
+### 2. Configure Environment Variables in `docker-compose.yml`
 
-Copy the sample environment file:
+Edit `docker-compose.yml` directly under the `environment:` section:
 
-```bash
-cp .env.example .env
+```yaml
+services:
+  myswoosh2garmin:
+    build: .
+    image: myswoosh2garmin:latest
+    container_name: myswoosh2garmin
+    restart: unless-stopped
+    environment:
+      - MYWHOOSH_EMAIL=your_mywhoosh_email@example.com
+      - MYWHOOSH_PASSWORD=your_mywhoosh_password
+      - GARMIN_USERNAME=your_garmin_email@example.com
+      - GARMIN_PASSWORD=your_garmin_password
+      - DATA_DIR=/data
+      - GARMIN_TOKEN_DIR=/data/garmin_tokens
+      - SYNC_INTERVAL_MINUTES=60
+    volumes:
+      - ./data:/data
 ```
 
-Edit `.env` with your credentials:
-
-```ini
-# MyWhoosh Credentials
-MYWHOOSH_EMAIL=your_mywhoosh_email@example.com
-MYWHOOSH_PASSWORD=your_mywhoosh_password
-
-# Garmin Connect Credentials
-GARMIN_USERNAME=your_garmin_email@example.com
-GARMIN_PASSWORD=your_garmin_password
-GARMIN_TOKEN_DIR=/root/.garminconnect
-
-# Sync Frequency (in minutes)
-SYNC_INTERVAL_MINUTES=15
-```
+> [!NOTE]
+> All SQLite activity tracking and Garmin session tokens are self-contained inside the `./data` volume. Only a single volume mount (`./data:/data`) is required!
 
 ### 3. Launch with Docker Compose
 
@@ -110,15 +112,15 @@ docker compose logs -f
 docker build -t myswoosh2garmin:latest .
 ```
 
-### Run as a Background Daemon:
+### Run as a Background Daemon (60m interval):
 
 ```bash
 docker run -d \
   --name myswoosh2garmin \
   --restart unless-stopped \
-  --env-file .env \
+  -e MYWHOOSH_EMAIL="your_email@example.com" \
+  -e MYWHOOSH_PASSWORD="your_password" \
   -v $(pwd)/data:/data \
-  -v ~/.garminconnect:/root/.garminconnect:rw \
   myswoosh2garmin:latest
 ```
 
@@ -126,9 +128,9 @@ docker run -d \
 
 ```bash
 docker run --rm \
-  --env-file .env \
+  -e MYWHOOSH_EMAIL="your_email@example.com" \
+  -e MYWHOOSH_PASSWORD="your_password" \
   -v $(pwd)/data:/data \
-  -v ~/.garminconnect:/root/.garminconnect:rw \
   myswoosh2garmin:latest --sync-latest
 ```
 
@@ -136,7 +138,6 @@ docker run --rm \
 
 ```bash
 docker run --rm \
-  --env-file .env \
   -v $(pwd)/data:/data \
   myswoosh2garmin:latest --status
 ```
@@ -145,7 +146,7 @@ docker run --rm \
 
 ## ⚙️ Configuration Reference
 
-All settings can be configured via environment variables or inside your `.env` file:
+All settings can be configured directly inside `docker-compose.yml`, environment variables, or a `.env` file:
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
@@ -153,8 +154,9 @@ All settings can be configured via environment variables or inside your `.env` f
 | `MYWHOOSH_PASSWORD` | **Required** | Your MyWhoosh account password |
 | `GARMIN_USERNAME` | *Optional* | Your Garmin Connect email (required if tokens are not yet cached) |
 | `GARMIN_PASSWORD` | *Optional* | Your Garmin Connect password |
-| `GARMIN_TOKEN_DIR` | `/root/.garminconnect` | Directory storing Garmin session tokens |
-| `SYNC_INTERVAL_MINUTES`| `15` | Polling frequency in minutes when in daemon mode |
+| `DATA_DIR` | `/data` | Directory where SQLite state database and tokens are stored |
+| `GARMIN_TOKEN_DIR` | `/data/garmin_tokens` | Directory storing Garmin session tokens (inside `DATA_DIR`) |
+| `SYNC_INTERVAL_MINUTES`| `60` | Polling frequency in minutes when in daemon mode (default 60m) |
 | `SYNC_BATCH_SIZE` | `10` | Max recent activities to evaluate per cycle |
 | `CHECK_DUPLICATES` | `true` | Verify if ride is already in Garmin Connect |
 | `DUPLICATE_THRESHOLD_HOURS` | `2` | Matching time window around ride timestamp |
@@ -162,7 +164,6 @@ All settings can be configured via environment variables or inside your `.env` f
 | `DEVICE_PRODUCT_ID` | `3927` | Garmin Device ID (`3927` = Edge 1040, `4024` = Edge 840) |
 | `DEVICE_SOFTWARE_VERSION` | `27.10` | Device firmware version reported in FIT header |
 | `ATHLETE_FTP` | `0` | Optional FTP wattage for Normalized Power / TSS calculations |
-| `DATA_DIR` | `/data` | Directory where SQLite state database is stored |
 | `LOG_LEVEL` | `INFO` | Logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
 
 ---
@@ -195,7 +196,7 @@ python -m src.main --batch 10
 python -m src.main --dry-run
 
 # Run as background daemon
-python -m src.main --daemon --interval 15
+python -m src.main --daemon --interval 60
 
 # Show sync history database
 python -m src.main --status
