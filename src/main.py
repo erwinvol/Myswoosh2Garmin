@@ -1,6 +1,7 @@
 """CLI and daemon entrypoint for Myswoosh2Garmin service."""
 
 import argparse
+import locale
 import logging
 import signal
 import sys
@@ -8,7 +9,13 @@ import time
 from datetime import datetime
 
 from src.config import Config
+from src.garmin_client import format_local_datetime
 from src.sync_engine import SyncEngine
+
+try:
+    locale.setlocale(locale.LC_TIME, "")
+except Exception:
+    pass
 
 
 def setup_logging(log_level: str = "INFO") -> None:
@@ -92,12 +99,13 @@ def main() -> int:
         total = engine.store.count()
         print(f"\nTotal activities tracked: {total}")
         print("Recent sync history:")
-        print(f"{'MyWhoosh ID':<20} {'Date':<20} {'Status':<18} {'Name'}")
-        print("-" * 75)
+        print(f"{'MyWhoosh ID':<16} {'Date':<24} {'Status':<18} {'Name'}")
+        print("-" * 80)
         for row in recent:
+            date_str = format_local_datetime(row.get("activity_date"))
             print(
-                f"{str(row['mywhoosh_id']):<20} "
-                f"{str(row.get('activity_date') or ''):<20} "
+                f"{str(row['mywhoosh_id']):<16} "
+                f"{date_str:<24} "
                 f"{str(row['garmin_status']):<18} "
                 f"{str(row.get('name') or '')}"
             )
