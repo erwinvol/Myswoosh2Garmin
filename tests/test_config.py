@@ -31,6 +31,16 @@ class TestConfig(unittest.TestCase):
             self.assertTrue(cfg.spoof_garmin_device)
             self.assertEqual(cfg.device_product_id, 4024)
 
+    def test_default_values(self):
+        env_vars = {
+            "MYWHOOSH_EMAIL": "test@example.com",
+            "MYWHOOSH_PASSWORD": "secretpassword",
+        }
+        with patch.dict(os.environ, env_vars, clear=True):
+            cfg = Config.from_env()
+            self.assertEqual(cfg.sync_interval_minutes, 60)
+            self.assertEqual(cfg.garmin_token_dir, cfg.data_dir / "garmin_tokens")
+
 
 if __name__ == "__main__":
     unittest.main()
