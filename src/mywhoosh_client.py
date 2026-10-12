@@ -34,9 +34,6 @@ class MyWhooshClient:
 
     def login(self) -> bool:
         """Authenticate with MyWhoosh and obtain access tokens."""
-        if requests is None:
-            raise RuntimeError("The 'requests' package is required. Install requirements.txt or run via Docker.")
-
         logger.info("Logging into MyWhoosh as %s...", self.email)
         payload = {
             "Username": self.email,
@@ -80,9 +77,6 @@ class MyWhooshClient:
         Returns:
             List of standardized activity dictionaries.
         """
-        if requests is None:
-            raise RuntimeError("The 'requests' package is required. Install requirements.txt or run via Docker.")
-
         self.ensure_authenticated()
 
         headers = {
@@ -113,7 +107,20 @@ class MyWhooshClient:
                     data = response.json()
                     raw_items = self._extract_activity_items(data)
                     logger.info("Found %d activities on MyWhoosh", len(raw_items))
-                    return [self._normalize_activity(item) for item in raw_items]
+                    normalized = [self._normalize_activity(item) for item in raw_items]
+                    try:
+                        from datetime import datetime, timezone
+                        from src.garmin_client import parse_activity_datetime
+                        normalized.sort(
+                            key=lambda a: parse_activity_datetime(a.get("date")) or datetime.min.replace(tzinfo=timezone.utc),
+                            reverse=True,
+                        )
+                    except Exception as sort_exc:
+                        logger.debug("Activity sort by date failed: %s", sort_exc)
+
+                    if limit and limit > 0:
+                        normalized = normalized[:limit]
+                    return normalized
 
                 last_error = f"HTTP {response.status_code}: {response.text}"
                 logger.warning("Activities fetch attempt failed: %s", last_error)
@@ -174,9 +181,6 @@ class MyWhooshClient:
         Returns:
             Absolute file path to the downloaded .fit file.
         """
-        if requests is None:
-            raise RuntimeError("The 'requests' package is required. Install requirements.txt or run via Docker.")
-
         self.ensure_authenticated()
 
         activity_id = activity["id"]
