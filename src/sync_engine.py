@@ -1,4 +1,4 @@
-"""Sync engine orchestrator for Myswoosh2Garmin service."""
+"""Sync engine orchestrator for MyWhoosh2Garmin service."""
 
 import logging
 from typing import Any, Dict, List, Optional

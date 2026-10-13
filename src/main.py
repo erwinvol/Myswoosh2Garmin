@@ -1,4 +1,4 @@
-"""CLI and daemon entrypoint for Myswoosh2Garmin service."""
+"""CLI and daemon entrypoint for MyWhoosh2Garmin service."""
 
 import argparse
 import locale
@@ -29,7 +29,7 @@ def setup_logging(log_level: str = "INFO") -> None:
 def parse_args() -> argparse.ArgumentParser:
     """Configure command line arguments."""
     parser = argparse.ArgumentParser(
-        prog="Myswoosh2Garmin",
+        prog="MyWhoosh2Garmin",
         description="Sync MyWhoosh activities to Garmin Connect with FIT device enhancement.",
     )
     parser.add_argument(
@@ -96,8 +96,8 @@ def main() -> int:
         return 1
 
     setup_logging(config.log_level)
-    logger = logging.getLogger("Myswoosh2Garmin")
-    logger.info("Initializing Myswoosh2Garmin service...")
+    logger = logging.getLogger("MyWhoosh2Garmin")
+    logger.info("Initializing MyWhoosh2Garmin service...")
 
     engine = SyncEngine(config=config)
 

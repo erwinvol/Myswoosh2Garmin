@@ -1,1 +1,1 @@
-"""Tests for Myswoosh2Garmin package."""
+"""Tests for MyWhoosh2Garmin package."""

@@ -1,4 +1,4 @@
-# Myswoosh2Garmin 🚴‍♂️💨 ➡️ ⌚
+# MyWhoosh2Garmin 🚴‍♂️💨 ➡️ ⌚
 
 Automated sync service that downloads your cycling activities from **MyWhoosh**, enhances the `.fit` files with Garmin Edge device signatures to enable Garmin **Physio TrueUp** (Training Load, Training Effect, VO2 Max, Recovery Time), and uploads them directly to **Garmin Connect**.
 
@@ -9,7 +9,7 @@ Packaged as a lightweight, containerized Docker service suitable for running on 
 ## 🌟 Key Features
 
 * **🔄 Automated Synchronization**: Runs as a set-and-forget background daemon polling MyWhoosh for new rides at configurable intervals (e.g., every 60 minutes).
-* **🎯 Garmin Physio TrueUp & Training Metrics**: By default, standard third-party virtual rides uploaded to Garmin Connect do not calculate Training Load or Training Effect. **Myswoosh2Garmin** patches the FIT file metadata (`FileIdMessage` and `DeviceInfoMessage`) to identify as a **Garmin Edge 1040** (or Edge 840), unlocking full physiological training metrics in Garmin Connect.
+* **🎯 Garmin Physio TrueUp & Training Metrics**: By default, standard third-party virtual rides uploaded to Garmin Connect do not calculate Training Load or Training Effect. **MyWhoosh2Garmin** patches the FIT file metadata (`FileIdMessage` and `DeviceInfoMessage`) to identify as a **Garmin Edge 1040** (or Edge 840), unlocking full physiological training metrics in Garmin Connect.
 * **🛡️ Multi-Tier Duplicate Prevention**:
   1. **Persistent SQLite Store**: Remembers synced activity IDs across reboots and container restarts.
   2. **Garmin Connect Time Window**: Checks Garmin Connect for activities matching within a ±2 hour window (preventing duplicates if you also recorded on your watch/bike computer).
@@ -60,8 +60,8 @@ Packaged as a lightweight, containerized Docker service suitable for running on 
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/erwinvol/Myswoosh2Garmin.git
-cd Myswoosh2Garmin
+git clone https://github.com/erwinvol/MyWhoosh2Garmin.git
+cd MyWhoosh2Garmin
 ```
 
 ### 2. Configure Environment Variables in `docker-compose.yml`
@@ -70,10 +70,10 @@ Edit `docker-compose.yml` directly under the `environment:` section:
 
 ```yaml
 services:
-  myswoosh2garmin:
+  mywhoosh2garmin:
     build: .
-    image: myswoosh2garmin:latest
-    container_name: myswoosh2garmin
+    image: mywhoosh2garmin:latest
+    container_name: mywhoosh2garmin
     restart: unless-stopped
     environment:
       - MYWHOOSH_EMAIL=your_mywhoosh_email@example.com
@@ -109,19 +109,19 @@ docker compose logs -f
 ### Build the Image:
 
 ```bash
-docker build -t myswoosh2garmin:latest .
+docker build -t mywhoosh2garmin:latest .
 ```
 
 ### Run as a Background Daemon (60m interval):
 
 ```bash
 docker run -d \
-  --name myswoosh2garmin \
+  --name mywhoosh2garmin \
   --restart unless-stopped \
   -e MYWHOOSH_EMAIL="your_email@example.com" \
   -e MYWHOOSH_PASSWORD="your_password" \
   -v $(pwd)/data:/data \
-  myswoosh2garmin:latest
+  mywhoosh2garmin:latest
 ```
 
 ### Run a One-Off Sync (Latest Ride):
@@ -131,32 +131,40 @@ docker run --rm \
   -e MYWHOOSH_EMAIL="your_email@example.com" \
   -e MYWHOOSH_PASSWORD="your_password" \
   -v $(pwd)/data:/data \
-  myswoosh2garmin:latest --sync-latest
+  mywhoosh2garmin:latest --sync-latest
+```
+
+### View Synchronization Status:
+
+```bash
+docker run --rm \
+  -v $(pwd)/data:/data \
+  mywhoosh2garmin:latest --status
 ```
 
 ---
 
 ## ⚙️ Configuration Reference
 
-All settings can be specified either via a `.env` file or environment variables in `docker-compose.yml`:
+All settings can be configured directly inside `docker-compose.yml`, environment variables, or a `.env` file:
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `MYWHOOSH_EMAIL` | *(required)* | MyWhoosh account email |
-| `MYWHOOSH_PASSWORD` | *(required)* | MyWhoosh account password |
-| `GARMIN_USERNAME` | *(optional)* | Garmin Connect email (only required on initial setup if tokens absent) |
-| `GARMIN_PASSWORD` | *(optional)* | Garmin Connect password |
-| `DATA_DIR` | `/data` | Path to persistent storage directory for SQLite database |
-| `GARMIN_TOKEN_DIR` | `/data/garmin_tokens` | Path to store cached Garmin session tokens |
-| `SYNC_INTERVAL_MINUTES`| `60` | Polling frequency for the daemon in minutes |
-| `SYNC_BATCH_SIZE` | `10` | Number of recent MyWhoosh activities to examine on startup |
-| `CHECK_DUPLICATES` | `true` | Query Garmin Connect API to verify if ride already exists |
-| `DUPLICATE_THRESHOLD_HOURS`| `2` | Time window (± hours) to detect existing Garmin activities |
-| `SPOOF_GARMIN_DEVICE` | `true` | Enhance FIT files with Garmin Edge device signatures |
-| `DEVICE_PRODUCT_ID` | `3927` | Garmin Product ID (`3927` = Edge 1040, `4063` = Edge 840) |
-| `DEVICE_SOFTWARE_VERSION` | `27.10` | Firmware version embedded into FIT file |
-| `ATHLETE_FTP` | `0` | Athlete FTP for Normalized Power / Intensity Factor calculations |
-| `LOG_LEVEL` | `INFO` | Console output level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
+| `MYWHOOSH_EMAIL` | **Required** | Your MyWhoosh login email address |
+| `MYWHOOSH_PASSWORD` | **Required** | Your MyWhoosh account password |
+| `GARMIN_USERNAME` | *Optional* | Your Garmin Connect email (required if tokens are not yet cached) |
+| `GARMIN_PASSWORD` | *Optional* | Your Garmin Connect password |
+| `DATA_DIR` | `/data` | Directory where SQLite state database and tokens are stored |
+| `GARMIN_TOKEN_DIR` | `/data/garmin_tokens` | Directory storing Garmin session tokens (inside `DATA_DIR`) |
+| `SYNC_INTERVAL_MINUTES`| `60` | Polling frequency in minutes when in daemon mode (default 60m) |
+| `SYNC_BATCH_SIZE` | `10` | Max recent activities to evaluate per cycle |
+| `CHECK_DUPLICATES` | `true` | Verify if ride is already in Garmin Connect |
+| `DUPLICATE_THRESHOLD_HOURS` | `2` | Matching time window around ride timestamp |
+| `SPOOF_GARMIN_DEVICE`| `true` | Patch FIT file with Garmin Edge device signatures |
+| `DEVICE_PRODUCT_ID` | `3927` | Garmin Device ID (`3927` = Edge 1040, `4024` = Edge 840) |
+| `DEVICE_SOFTWARE_VERSION` | `27.10` | Device firmware version reported in FIT header |
+| `ATHLETE_FTP` | `0` | Optional FTP wattage for Normalized Power / TSS calculations |
+| `LOG_LEVEL` | `INFO` | Logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
 
 ---
 

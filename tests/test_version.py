@@ -28,7 +28,7 @@ class TestVersioning(unittest.TestCase):
                 parser.parse_args(["--version"])
             self.assertEqual(cm.exception.code, 0)
             self.assertIn(__version__, mock_stdout.getvalue())
-            self.assertIn("Myswoosh2Garmin", mock_stdout.getvalue())
+            self.assertIn("MyWhoosh2Garmin", mock_stdout.getvalue())
 
     def test_cli_short_version_flag(self):
         """CLI parser must support -v shortcut for version."""

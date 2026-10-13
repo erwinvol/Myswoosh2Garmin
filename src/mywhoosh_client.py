@@ -83,7 +83,7 @@ class MyWhooshClient:
             "Authorization": f"Bearer {self.access_token}",
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": "Myswoosh2Garmin/1.0",
+            "User-Agent": "MyWhoosh2Garmin/1.0",
         }
 
         payloads = [
@@ -194,7 +194,7 @@ class MyWhooshClient:
         headers = {
             "Authorization": f"Bearer {self.access_token}",
             "Content-Type": "application/json",
-            "User-Agent": "Myswoosh2Garmin/1.0",
+            "User-Agent": "MyWhoosh2Garmin/1.0",
         }
         payload = {
             "key": self.whoosh_id,

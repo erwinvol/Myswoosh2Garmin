@@ -5,12 +5,12 @@ ARG REVISION=unknown
 ARG CREATED=""
 
 LABEL maintainer="erwinvol" \
-      org.opencontainers.image.title="Myswoosh2Garmin" \
+      org.opencontainers.image.title="MyWhoosh2Garmin" \
       org.opencontainers.image.description="Automatic sync service between MyWhoosh and Garmin Connect with FIT device spoofing" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}" \
       org.opencontainers.image.created="${CREATED}" \
-      org.opencontainers.image.source="https://github.com/erwinvol/Myswoosh2Garmin" \
+      org.opencontainers.image.source="https://github.com/erwinvol/MyWhoosh2Garmin" \
       org.opencontainers.image.licenses="MIT"
 
 ENV PYTHONUNBUFFERED=1 \

@@ -1,4 +1,4 @@
-"""Configuration loader for Myswoosh2Garmin service."""
+"""Configuration loader for MyWhoosh2Garmin service."""
 
 import os
 from dataclasses import dataclass
