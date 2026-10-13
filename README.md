@@ -1,5 +1,7 @@
 # Myswoosh2Garmin 🚴‍♂️💨 ➡️ ⌚
 
+Vibecoded - if you stumble upon this, use at your own risk.
+
 Automated sync service that downloads your cycling activities from **MyWhoosh**, enhances the `.fit` files with Garmin Edge device signatures to enable Garmin **Physio TrueUp** (Training Load, Training Effect, VO2 Max, Recovery Time), and uploads them directly to **Garmin Connect**.
 
 Packaged as a lightweight, containerized Docker service suitable for running on home servers, NAS devices (Synology, Unraid, TrueNAS), Raspberry Pis, or any system with Docker.
