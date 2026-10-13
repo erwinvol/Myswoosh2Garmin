@@ -111,11 +111,28 @@ class GarminClient:
         # Attempt 1: Try using cached tokens if present
         try:
             client = Garmin()
+            # Explicitly load and refresh DI token if expiring soon
+            tokens_loaded = False
+            token_file = self.token_dir / "garmin_tokens.json" if self.token_dir.is_dir() else self.token_dir
+            if token_file.exists():
+                try:
+                    client.client.load(str(token_str))
+                    tokens_loaded = True
+                    if client.client._token_expires_soon() and client.client.di_refresh_token:
+                        logger.info("Garmin token expiring soon or expired, refreshing DI token...")
+                        client.client._refresh_di_token()
+                        client.client.dump(token_str)
+                except Exception as load_err:
+                    logger.debug("Direct load/refresh of token file failed: %s", load_err)
+
             client.login(token_str)
             self._client = client
             self._authenticated = True
             logger.info("Garmin Connect authentication successful using cached tokens at %s", token_str)
             return True
+        except GarminConnectTooManyRequestsError as exc:
+            logger.error("Garmin Connect rate limit (HTTP 429) hit during cached login. Please wait before retrying.")
+            raise
         except Exception as cached_exc:
             logger.debug("Cached token login failed (%s). Attempting credential login...", cached_exc)
 
@@ -127,9 +144,15 @@ class GarminClient:
             )
 
         try:
+            import time
             client = Garmin(self.username, self.password)
             client.login()
-            client.garth.dump(token_str)
+            # In garminconnect >= 0.3.x, tokens are dumped via client.client.dump
+            try:
+                client.client.dump(token_str)
+            except AttributeError:
+                if hasattr(client, "garth"):
+                    client.garth.dump(token_str)
             self._client = client
             self._authenticated = True
             logger.info("Garmin Connect authentication successful with credentials. Dumped tokens to %s", token_str)
@@ -138,7 +161,7 @@ class GarminClient:
             logger.exception("Garmin Connect authentication error. Please verify credentials.")
             raise
         except GarminConnectTooManyRequestsError as exc:
-            logger.exception("Garmin Connect rate limit encountered (Too Many Requests).")
+            logger.exception("Garmin Connect rate limit encountered (HTTP 429 Too Many Requests).")
             raise
         except GarminConnectConnectionError as exc:
             logger.exception("Garmin Connect network connection failure.")
@@ -178,32 +201,41 @@ class GarminClient:
         date_key = target_dt.strftime("%Y-%m-%d")
         logger.info("Checking Garmin Connect for duplicate activities on %s (±%dh window)...", date_key, threshold_hours)
 
-        try:
-            existing_activities = self._client.get_activities_by_date(date_key, date_key) or []
-            logger.info("Found %d existing activities on Garmin for %s", len(existing_activities), date_key)
+        import time
 
-            for act in existing_activities:
-                start_str = act.get("startTimeLocal") or act.get("startTimeGMT") or act.get("startTime")
-                act_dt = parse_activity_datetime(start_str)
-                if not act_dt:
+        for attempt in range(1, 4):
+            try:
+                existing_activities = self._client.get_activities_by_date(date_key, date_key) or []
+                logger.info("Found %d existing activities on Garmin for %s", len(existing_activities), date_key)
+
+                for act in existing_activities:
+                    start_str = act.get("startTimeLocal") or act.get("startTimeGMT") or act.get("startTime")
+                    act_dt = parse_activity_datetime(start_str)
+                    if not act_dt:
+                        continue
+
+                    hours_diff = abs((act_dt - target_dt).total_seconds()) / 3600.0
+                    if hours_diff <= threshold_hours:
+                        existing_title = act.get("activityName", "")
+                        logger.warning(
+                            "Found potential duplicate activity on Garmin: '%s' at %s (diff: %.1f hrs)",
+                            existing_title,
+                            format_local_datetime(act_dt),
+                            hours_diff,
+                        )
+                        return True
+
+                return False
+
+            except Exception as exc:
+                err_str = str(exc).lower()
+                if ("429" in err_str or "too many requests" in err_str) and attempt < 3:
+                    wait_sec = attempt * 5
+                    logger.warning("Garmin Connect rate limit (HTTP 429) during duplicate check. Retrying in %ds...", wait_sec)
+                    time.sleep(wait_sec)
                     continue
-
-                hours_diff = abs((act_dt - target_dt).total_seconds()) / 3600.0
-                if hours_diff <= threshold_hours:
-                    existing_title = act.get("activityName", "")
-                    logger.warning(
-                        "Found potential duplicate activity on Garmin: '%s' at %s (diff: %.1f hrs)",
-                        existing_title,
-                        format_local_datetime(act_dt),
-                        hours_diff,
-                    )
-                    return True
-
-            return False
-
-        except Exception as exc:
-            logger.warning("Error querying Garmin Connect activities for duplicate check: %s. Continuing.", exc)
-            return False
+                logger.warning("Error querying Garmin Connect activities for duplicate check: %s. Continuing.", exc)
+                return False
 
     def upload_activity(self, fit_file_path: str) -> Dict[str, Any]:
         """Upload a FIT file to Garmin Connect.
@@ -214,6 +246,7 @@ class GarminClient:
         Returns:
             Dictionary containing status ('uploaded', 'skipped_duplicate') and details.
         """
+        import time
         self.ensure_authenticated()
 
         if not os.path.exists(fit_file_path):
@@ -222,17 +255,24 @@ class GarminClient:
         file_size = os.path.getsize(fit_file_path)
         logger.info("Uploading %s (%d bytes) to Garmin Connect...", os.path.basename(fit_file_path), file_size)
 
-        try:
-            response = self._client.upload_activity(fit_file_path)
-            logger.info("Upload to Garmin Connect successful!")
-            return {"status": "uploaded", "response": response}
+        for attempt in range(1, 4):
+            try:
+                response = self._client.upload_activity(fit_file_path)
+                logger.info("Upload to Garmin Connect successful!")
+                return {"status": "uploaded", "response": response}
 
-        except Exception as exc:
-            err_str = str(exc)
-            # 409 Conflict means the file is already uploaded on Garmin
-            if "409" in err_str or "Conflict" in err_str:
-                logger.warning("Garmin Connect returned HTTP 409 Conflict: Activity already exists.")
-                return {"status": "skipped_duplicate", "reason": "HTTP 409 Conflict"}
+            except Exception as exc:
+                err_str = str(exc)
+                # 409 Conflict means the file is already uploaded on Garmin
+                if "409" in err_str or "Conflict" in err_str:
+                    logger.warning("Garmin Connect returned HTTP 409 Conflict: Activity already exists.")
+                    return {"status": "skipped_duplicate", "reason": "HTTP 409 Conflict"}
 
-            logger.exception("Garmin Connect upload failed: %s", exc)
-            raise RuntimeError(f"Garmin Connect upload failed: {exc}") from exc
+                if ("429" in err_str or "too many requests" in err_str.lower()) and attempt < 3:
+                    wait_sec = attempt * 10
+                    logger.warning("Garmin Connect rate limit (HTTP 429) during upload. Retrying in %ds...", wait_sec)
+                    time.sleep(wait_sec)
+                    continue
+
+                logger.exception("Garmin Connect upload failed: %s", exc)
+                raise RuntimeError(f"Garmin Connect upload failed: {exc}") from exc
