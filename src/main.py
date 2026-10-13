@@ -8,6 +8,7 @@ import sys
 import time
 from datetime import datetime
 
+from src import __version__
 from src.config import Config
 from src.garmin_client import format_local_datetime
 from src.sync_engine import SyncEngine
@@ -30,6 +31,13 @@ def parse_args() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="Myswoosh2Garmin",
         description="Sync MyWhoosh activities to Garmin Connect with FIT device enhancement.",
+    )
+    parser.add_argument(
+        "-v",
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
+        help="Show program's version number and exit.",
     )
     parser.add_argument(
         "--daemon",

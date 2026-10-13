@@ -1,7 +1,5 @@
 # Myswoosh2Garmin 🚴‍♂️💨 ➡️ ⌚
 
-Vibecoded - if you stumble upon this, use at your own risk.
-
 Automated sync service that downloads your cycling activities from **MyWhoosh**, enhances the `.fit` files with Garmin Edge device signatures to enable Garmin **Physio TrueUp** (Training Load, Training Effect, VO2 Max, Recovery Time), and uploads them directly to **Garmin Connect**.
 
 Packaged as a lightweight, containerized Docker service suitable for running on home servers, NAS devices (Synology, Unraid, TrueNAS), Raspberry Pis, or any system with Docker.
@@ -136,37 +134,29 @@ docker run --rm \
   myswoosh2garmin:latest --sync-latest
 ```
 
-### View Synchronization Status:
-
-```bash
-docker run --rm \
-  -v $(pwd)/data:/data \
-  myswoosh2garmin:latest --status
-```
-
 ---
 
 ## ⚙️ Configuration Reference
 
-All settings can be configured directly inside `docker-compose.yml`, environment variables, or a `.env` file:
+All settings can be specified either via a `.env` file or environment variables in `docker-compose.yml`:
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `MYWHOOSH_EMAIL` | **Required** | Your MyWhoosh login email address |
-| `MYWHOOSH_PASSWORD` | **Required** | Your MyWhoosh account password |
-| `GARMIN_USERNAME` | *Optional* | Your Garmin Connect email (required if tokens are not yet cached) |
-| `GARMIN_PASSWORD` | *Optional* | Your Garmin Connect password |
-| `DATA_DIR` | `/data` | Directory where SQLite state database and tokens are stored |
-| `GARMIN_TOKEN_DIR` | `/data/garmin_tokens` | Directory storing Garmin session tokens (inside `DATA_DIR`) |
-| `SYNC_INTERVAL_MINUTES`| `60` | Polling frequency in minutes when in daemon mode (default 60m) |
-| `SYNC_BATCH_SIZE` | `10` | Max recent activities to evaluate per cycle |
-| `CHECK_DUPLICATES` | `true` | Verify if ride is already in Garmin Connect |
-| `DUPLICATE_THRESHOLD_HOURS` | `2` | Matching time window around ride timestamp |
-| `SPOOF_GARMIN_DEVICE`| `true` | Patch FIT file with Garmin Edge device signatures |
-| `DEVICE_PRODUCT_ID` | `3927` | Garmin Device ID (`3927` = Edge 1040, `4024` = Edge 840) |
-| `DEVICE_SOFTWARE_VERSION` | `27.10` | Device firmware version reported in FIT header |
-| `ATHLETE_FTP` | `0` | Optional FTP wattage for Normalized Power / TSS calculations |
-| `LOG_LEVEL` | `INFO` | Logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
+| `MYWHOOSH_EMAIL` | *(required)* | MyWhoosh account email |
+| `MYWHOOSH_PASSWORD` | *(required)* | MyWhoosh account password |
+| `GARMIN_USERNAME` | *(optional)* | Garmin Connect email (only required on initial setup if tokens absent) |
+| `GARMIN_PASSWORD` | *(optional)* | Garmin Connect password |
+| `DATA_DIR` | `/data` | Path to persistent storage directory for SQLite database |
+| `GARMIN_TOKEN_DIR` | `/data/garmin_tokens` | Path to store cached Garmin session tokens |
+| `SYNC_INTERVAL_MINUTES`| `60` | Polling frequency for the daemon in minutes |
+| `SYNC_BATCH_SIZE` | `10` | Number of recent MyWhoosh activities to examine on startup |
+| `CHECK_DUPLICATES` | `true` | Query Garmin Connect API to verify if ride already exists |
+| `DUPLICATE_THRESHOLD_HOURS`| `2` | Time window (± hours) to detect existing Garmin activities |
+| `SPOOF_GARMIN_DEVICE` | `true` | Enhance FIT files with Garmin Edge device signatures |
+| `DEVICE_PRODUCT_ID` | `3927` | Garmin Product ID (`3927` = Edge 1040, `4063` = Edge 840) |
+| `DEVICE_SOFTWARE_VERSION` | `27.10` | Firmware version embedded into FIT file |
+| `ATHLETE_FTP` | `0` | Athlete FTP for Normalized Power / Intensity Factor calculations |
+| `LOG_LEVEL` | `INFO` | Console output level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
 
 ---
 
@@ -188,6 +178,9 @@ pip install -r requirements.txt
 ### 3. Run Commands
 
 ```bash
+# Check installed version
+python -m src.main --version
+
 # Sync only the single latest activity
 python -m src.main --sync-latest
 
